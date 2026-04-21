@@ -1,6 +1,6 @@
 # Claude Code 專案資料夾結構說明
 
-本文件說明 `claude-code-folders/` 範例專案的每個檔案與資料夾用途。所有欄位皆以 2026-04 官方文件為準（https://docs.claude.com/en/docs/claude-code）。
+本文件說明 `claude-code-folders/` 範例專案的每個檔案與資料夾用途。所有欄位皆以 2026-04 官方文件為準（https://code.claude.com/docs/en）。
 
 ---
 
@@ -67,10 +67,12 @@ claude-code-folders/
 | `deny` | 一律拒絕（最高優先級） |
 | `ask` | 執行前詢問使用者 |
 
-範例語法：
+範例語法（官方採用 **空格 + `*`** 寫法，不是冒號）：
 - `"Read"` — 允許 Read 工具（所有用法）
-- `"Bash(ls:*)"` — 允許 `ls` 後接任意參數
-- `"Bash(git push:*)"` — 搭配 `ask` 用於需要確認的指令
+- `"Bash(ls *)"` — 允許 `ls` 後接任意參數
+- `"Bash(git push *)"` — 搭配 `ask` 用於需要確認的指令
+- `"Read(./.env)"` — 精確匹配單一檔案
+- `"Read(./secrets/**)"` — 匹配目錄下所有檔案
 
 ### `env`
 
@@ -423,7 +425,7 @@ claude
 #   /memory     → 確認 CLAUDE.md 已載入
 #   /agents     → 應看到 hello-agent
 #   /hello      → 應能執行
-#   /mcp        → 空清單屬正常（.mcp.json 未註冊 server）
+#   /mcp        → 應看到 time server 為 connected（首次需批准信任）
 #   啟動時應出現 SessionStart hook 輸出
 #
 # 4. Rule 條件載入驗證：
