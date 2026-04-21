@@ -22,7 +22,7 @@ claude-code-folders/
 │   │   └── greet/
 │   │       └── SKILL.md              # 最小 Skill 範例
 │   ├── hooks/
-│   │   └── session-start.sh          # 最小 Hook 腳本範例
+│   │   └── on-stop.sh                # Hook 腳本範例（Stop 事件）
 │   └── rules/
 │       └── src-convention.md         # Path-scoped rule 範例
 ├── src/
@@ -80,7 +80,7 @@ claude-code-folders/
 
 ### `hooks`
 
-在特定生命週期事件觸發腳本／指令。本範例只示範 `SessionStart`。
+在特定生命週期事件觸發腳本／指令。本範例示範 `Stop`（每次 Claude 回應結束後觸發）。
 
 常見 hook 事件：
 
@@ -225,27 +225,35 @@ description: 示範用 Skill，收到問候請求時回覆一段友善訊息。�
 
 **Hook 的「配置」寫在 `settings.json` 的 `hooks` 欄位**。`hooks/` 資料夾只是放腳本檔案的地方，並非約定路徑——你可以放在任何路徑，`settings.json` 中用絕對路徑或 `$CLAUDE_PROJECT_DIR` 指向。
 
-### 本範例：`session-start.sh`
+### 本範例：`on-stop.sh`
+
+每次 Claude 回應完成後印出提示訊息：
 
 ```bash
 #!/usr/bin/env bash
-echo "[Hook] Claude Code session started for ${CLAUDE_PROJECT_NAME:-unknown-project}"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  ✅  Claude 回應完成"
+echo "  專案：${CLAUDE_PROJECT_NAME:-unknown-project}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ```
 
 搭配 `settings.json`：
 
 ```json
 "hooks": {
-  "SessionStart": [
+  "Stop": [
     {
-      "matcher": "startup",
+      "matcher": "",
       "hooks": [
-        { "type": "command", "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh" }
+        { "type": "command", "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/on-stop.sh" }
       ]
     }
   ]
 }
 ```
+
+> `matcher: ""` 表示不篩選，每次 Stop 事件都觸發。`SessionStart` 支援 `startup`／`resume` 等 matcher；`Stop` 沒有內建 matcher 值，留空即可。
 
 ### Hook 腳本慣例
 
@@ -417,7 +425,7 @@ npx -y jsonlint -q .claude/settings.local.json
 npx -y jsonlint -q .mcp.json
 
 # 2. 手動執行 hook 腳本
-bash .claude/hooks/session-start.sh
+bash .claude/hooks/on-stop.sh
 
 # 3. 啟動 Claude Code 驗證
 claude
@@ -426,7 +434,7 @@ claude
 #   /agents     → 應看到 hello-agent
 #   /hello      → 應能執行
 #   /mcp        → 應看到 time server 為 connected（首次需批准信任）
-#   啟動時應出現 SessionStart hook 輸出
+#   每次 Claude 回應結束後應出現 Stop hook 輸出（分隔線 + 回應完成訊息）
 #
 # 4. Rule 條件載入驗證：
 #   請 Claude 讀取 src/ 底下任一檔案

@@ -24,13 +24,13 @@
     "pr": ""
   },
   "hooks": {
-    "SessionStart": [
+    "Stop": [
       {
-        "matcher": "startup",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/on-stop.sh"
           }
         ]
       }
