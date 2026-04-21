@@ -13,10 +13,6 @@
   "env": {
     "CLAUDE_PROJECT_NAME": "Claude Code 範例專案資料夾"
   },
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
   "hooks": {
     "Stop": [
       {
