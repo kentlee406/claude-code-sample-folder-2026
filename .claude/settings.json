@@ -5,15 +5,16 @@
       "Read",
       "Glob",
       "Grep",
-      "Bash(ls:*)",
+      "Bash(ls *)",
       "Bash(pwd)"
     ],
     "deny": [
-      "Bash(rm -rf:*)"
+      "Bash(rm -rf *)"
     ],
     "ask": [
-      "Bash(git push:*)"
-    ]
+      "Bash(git push *)"
+    ],
+    "additionalDirectories": []
   },
   "env": {
     "CLAUDE_PROJECT_NAME": "Claude Code 範例專案資料夾"

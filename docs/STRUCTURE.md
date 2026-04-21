@@ -10,6 +10,7 @@
 claude-code-folders/
 ├── CLAUDE.md                         # 專案主指南（自動載入 context）
 ├── .gitignore                        # 忽略本地/個人設定
+├── .mcp.json                         # 專案層級 MCP servers 設定
 ├── .claude/                          # Claude Code 所有設定根目錄
 │   ├── settings.json                 # 團隊共享設定（提交 Git）
 │   ├── settings.local.json           # 個人本地設定（不提交）
@@ -20,8 +21,12 @@ claude-code-folders/
 │   ├── skills/
 │   │   └── greet/
 │   │       └── SKILL.md              # 最小 Skill 範例
-│   └── hooks/
-│       └── session-start.sh          # 最小 Hook 腳本範例
+│   ├── hooks/
+│   │   └── session-start.sh          # 最小 Hook 腳本範例
+│   └── rules/
+│       └── src-convention.md         # Path-scoped rule 範例
+├── src/
+│   └── .gitkeep                      # 讓 src/**/* rule 有匹配目標
 └── docs/
     └── STRUCTURE.md                  # 本文件
 ```
@@ -85,6 +90,20 @@ claude-code-folders/
 | `PostToolUse` | 工具執行後 |
 | `Stop` | Claude 完成回應 |
 | `SessionEnd` | Session 結束 |
+
+### `permissions.additionalDirectories`
+
+允許 Claude 存取**專案資料夾外**的其他目錄（用於讀寫檔案）。
+
+```json
+"permissions": {
+  "additionalDirectories": ["../shared-config/", "/Users/me/snippets"]
+}
+```
+
+本範例設為 `[]` 空陣列，代表不允許任何專案外目錄。
+
+> ⚠️ 注意：位於 `additionalDirectories` 的資料夾**不會**被掃描為 Claude Code 設定（例如 `../shared-config/.claude/agents/` 不會被載入）。這個欄位只給予「檔案存取」權限，不是「設定發現」。
 
 ### `attribution`
 
@@ -234,49 +253,180 @@ echo "[Hook] Claude Code session started for ${CLAUDE_PROJECT_NAME:-unknown-proj
 
 ---
 
-## 9. 本範例刻意省略的進階項目
+## 9. `.claude/rules/` — Path-scoped 規則
 
-教學以「最小可運作」為原則。以下項目確實存在，但未放入此範例，請學員於進階課程再接觸：
+Rules 是把 `CLAUDE.md` 中的專案指南**拆分成主題檔案**，並可依檔案路徑**條件載入**，避免 `CLAUDE.md` 過長吃掉 context。
+
+### 位置與發現規則
+
+- `.claude/rules/*.md`
+- 支援子資料夾（例：`.claude/rules/frontend/react.md` 會被自動發現）
+
+### 載入時機
+
+| frontmatter | 載入時機 |
+|-------------|---------|
+| 有 `paths:` | 當 Claude 讀取符合 glob 的檔案時才載入 |
+| 沒有 `paths:` | Session 啟動時載入（類似 CLAUDE.md） |
+
+### 本範例：`rules/src-convention.md`
+
+```markdown
+---
+paths:
+  - "src/**/*"
+---
+
+# src/ 資料夾開發規範
+
+- 每個模組放在獨立檔案中
+- 檔名使用 kebab-case
+- 對外輸出一律 named export
+```
+
+只有當 Claude 讀取 `src/` 底下任一檔案時，這條規則才會進入 context。
+
+### 與 CLAUDE.md 的分工
+
+| 情境 | 建議放哪 |
+|------|---------|
+| 全專案都適用的慣例 | `CLAUDE.md` |
+| 只對特定路徑有效的規則 | `.claude/rules/*.md` 加 `paths:` |
+| `CLAUDE.md` 超過 200 行 | 開始拆分到 `rules/` |
+
+> ⚠️ Rules 跟 CLAUDE.md 一樣是「Claude 會讀到的指南」，**不是強制執行的配置**。若要強制行為，改用 `hooks` 或 `permissions`。
+
+---
+
+## 10. `.mcp.json` — 專案級 MCP 設定
+
+**MCP（Model Context Protocol）** 讓 Claude Code 能連接外部工具、資料來源、API。例如 filesystem、GitHub、資料庫連線等。
+
+### 位置（重要）
+
+**專案層級** MCP 設定放在**專案根目錄**的 `.mcp.json`，不是 `.claude/` 裡面。
+
+```
+claude-code-folders/
+├── .mcp.json              # ← 這裡（根目錄）
+└── .claude/
+```
+
+### 本範例內容
+
+本範例註冊了 MCP 官方 reference 中的 **time** server，提供「查詢當前時間」與「時區轉換」功能，供學員實際驗證 MCP 是否運作：
+
+```json
+{
+  "mcpServers": {
+    "time": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-time",
+        "--local-timezone=Asia/Taipei"
+      ]
+    }
+  }
+}
+```
+
+> 前置需求：需預先安裝 [`uv`](https://docs.astral.sh/uv/)（提供 `uvx` 指令）。`uvx` 首次啟動時會自動下載 `mcp-server-time`（Python package）。
+
+### 欄位說明
+
+| 欄位 | 用途 |
+|-----|------|
+| `command` | 啟動 server 的執行檔（此例為 `uvx`） |
+| `args` | 傳給 command 的參數陣列 |
+| `env`（選填）| 注入 MCP server 行程的環境變數 |
+| `type`（選填）| `stdio`（預設）、`http`、`sse` |
+
+### 驗證方式
+
+啟動 `claude` 後：
+
+1. Claude Code 會跳出「是否信任此專案的 MCP servers？」**需手動批准**（安全設計）
+2. 執行 `/mcp` 應看到 `time` 為 `connected` 狀態
+3. 問 Claude「現在台北時間幾點？」或「把 2026-04-21 15:00 UTC 換成 Asia/Tokyo」，它會自動呼叫 time MCP 的工具
+
+### 移除此範例
+
+若不需要此範例，只要把 `.mcp.json` 改回空殼即可：
+
+```json
+{ "mcpServers": {} }
+```
+
+之後執行一次 `claude mcp reset-project-choices` 清掉批准記錄。
+
+### 三種 MCP Scope
+
+| Scope | 位置 | 是否提交 Git |
+|-------|------|------------|
+| Project | `.mcp.json`（專案根） | ✅ 團隊共用 |
+| User | `~/.claude.json` | ❌ 個人跨專案 |
+| Local | `~/.claude.json`（per-project 區段） | ❌ 個人專屬於此專案 |
+
+### 相關 settings.json 欄位（進階）
+
+- `enableAllProjectMcpServers` — 自動信任 `.mcp.json` 所有 server
+- `enabledMcpjsonServers` — 指定信任清單
+- `disabledMcpjsonServers` — 指定拒絕清單
+
+本範例未使用這些進階欄位。
+
+---
+
+## 11. 本範例仍刻意省略的進階項目
+
+v2 已涵蓋 rules、MCP、additionalDirectories。以下仍保留於「未涵蓋」清單，留給進階課程：
 
 | 項目 | 說明 |
 |------|------|
-| `.claude/rules/` | Path-scoped 規則檔（依檔案路徑自動套用） |
 | `.claude/output-styles/` | 自訂 Claude 的輸出風格 |
 | `statusLine` | 自訂底部狀態列 |
-| MCP servers | 擴充外部工具與資料來源 |
 | `apiKeyHelper` | 動態取得 API Key |
-| `additionalDirectories` | 允許存取專案外的額外資料夾 |
 | 進階 hook 類型 | `http`、`prompt`、`agent` 等非 command 類型 |
+| Managed scope | 企業級全機器部署設定 |
 
 ---
 
-## 10. 延伸閱讀（官方文件）
+## 12. 延伸閱讀（官方文件）
 
-- Settings：https://docs.claude.com/en/docs/claude-code/settings
-- Permissions：https://docs.claude.com/en/docs/claude-code/permissions
-- Subagents：https://docs.claude.com/en/docs/claude-code/sub-agents
-- Skills：https://docs.claude.com/en/docs/claude-code/skills
-- Hooks：https://docs.claude.com/en/docs/claude-code/hooks
-- Memory（CLAUDE.md）：https://docs.claude.com/en/docs/claude-code/memory
+- Settings：https://code.claude.com/docs/en/settings
+- Permissions：https://code.claude.com/docs/en/permissions
+- Subagents：https://code.claude.com/docs/en/sub-agents
+- Skills：https://code.claude.com/docs/en/skills
+- Hooks：https://code.claude.com/docs/en/hooks
+- Memory（CLAUDE.md / rules）：https://code.claude.com/docs/en/memory
+- MCP：https://code.claude.com/docs/en/mcp
+- `.claude/` 目錄導覽：https://code.claude.com/docs/en/claude-directory
 
 ---
 
-## 11. 驗證方式
+## 13. 驗證方式
 
 在本資料夾執行：
 
 ```bash
-# 檢查 JSON 合法
-python3 -m json.tool .claude/settings.json
-python3 -m json.tool .claude/settings.local.json
+# 1. JSON 合法性（使用 npm 生態工具）
+npx -y jsonlint -q .claude/settings.json
+npx -y jsonlint -q .claude/settings.local.json
+npx -y jsonlint -q .mcp.json
 
-# 手動執行 hook 腳本
+# 2. 手動執行 hook 腳本
 bash .claude/hooks/session-start.sh
 
-# 啟動 Claude Code 驗證
+# 3. 啟動 Claude Code 驗證
 claude
 # 在 Claude 內檢查：
+#   /memory     → 確認 CLAUDE.md 已載入
 #   /agents     → 應看到 hello-agent
 #   /hello      → 應能執行
-#   啟動時應出現 hook 輸出
+#   /mcp        → 空清單屬正常（.mcp.json 未註冊 server）
+#   啟動時應出現 SessionStart hook 輸出
+#
+# 4. Rule 條件載入驗證：
+#   請 Claude 讀取 src/ 底下任一檔案
+#   再執行 /memory，應看到 src-convention.md 已進入規則列表
 ```
