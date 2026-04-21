@@ -227,22 +227,17 @@ description: 示範用 Skill，收到問候請求時回覆一段友善訊息。�
 
 ### 本範例：`on-stop.sh`
 
-每次 Claude 回應完成後同時做兩件事：寫入 log 檔、發送 macOS 系統通知。
+每次 Claude 回應完成後將時間戳記寫入 log 檔，可在 VS Code 終端機以 `tail -f .claude/hooks/stop.log` 即時觀察。
 
 ```bash
 #!/usr/bin/env bash
 PROJECT="${CLAUDE_PROJECT_NAME:-unknown-project}"
-TIMESTAMP="$(date '+%H:%M:%S')"
 LOG_FILE="$(dirname "$0")/stop.log"
 
-# 1. 寫入 log 檔（可用 tail -f 觀察）
-echo "${TIMESTAMP}  Claude 回應完成 — ${PROJECT}" >> "$LOG_FILE"
-
-# 2. macOS 系統通知（VS Code 擴充套件模式下可見）
-osascript -e "display notification \"Claude 回應完成\" with title \"Claude Code\" subtitle \"${PROJECT}\""
+echo "$(date '+%H:%M:%S')  Claude 回應完成 — ${PROJECT}" >> "$LOG_FILE"
 ```
 
-> **VS Code 注意**：擴充套件模式下 hook 的 stdout 不會顯示在 UI，需透過 log 檔或系統通知才看得到效果。
+> **VS Code 注意**：擴充套件模式下 hook 的 stdout 不會顯示在 UI，寫入 log 檔是最通用的做法。
 
 搭配 `settings.json`：
 
